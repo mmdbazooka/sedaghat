@@ -1,19 +1,42 @@
 export async function sendSms(to: string, text: string) {
   try {
-    const response = await fetch('https://rest.payamak-panel.com/api/SendSMS/SendSMS', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: process.env.MELIPAYAMAK_USERNAME,
-        password: process.env.MELIPAYAMAK_PASSWORD,
-        from: process.env.MELIPAYAMAK_FROM,
-        to: to,
-        text: text,
-      }),
-    });
-    const result = await response.json();
-    return { success: result.RetStatus === 1 };
+    const apiKey = process.env.MELIPAYAMAK_API_KEY;
+    const from = process.env.MELIPAYAMAK_FROM;
+
+    // تبدیل رشته "0912xxx,0935xxx" به آرایه
+    const toArray = to.split(",").map((num) => num.trim());
+
+    const response = await fetch(
+      `https://console.melipayamak.com/api/send/advanced/${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: from,
+          to: toArray,
+          text: text,
+          udh: "",
+        }),
+      }
+    );
+
+    const resultText = await response.text();
+    console.log("SMS Raw:", resultText);
+
+    if (!resultText) {
+      return { success: true };
+    }
+
+    try {
+      const result = JSON.parse(resultText);
+      console.log("SMS Result:", result);
+      return { success: result.status === "success" || !!result.recId };
+    } catch {
+      const isSuccess = /^\d+/.test(resultText.trim());
+      return { success: isSuccess };
+    }
   } catch (error) {
-    return { success: false };
+    console.error("SMS Error:", error);
+    return { success: false, error: "ارسال پیامک ناموفق بود" };
   }
 }

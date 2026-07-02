@@ -85,6 +85,7 @@ export default function CreateInvoiceForm() {
     "دست بافت": 250000,
     "موکت معمولی": 35500,
     "موکت پالاز": 52500,
+    "فرش کناره": 105000,
     "تشک 1 نفره": 2400000,
     "تشک 2 نفره": 3500000,
   };
@@ -100,6 +101,7 @@ export default function CreateInvoiceForm() {
     "دست بافت": 0,
     "موکت معمولی": 0,
     "موکت پالاز": 0,
+    "فرش کناره": 0,
     "تشک 1 نفره": 0,
     "تشک 2 نفره": 0,
   };
@@ -161,7 +163,9 @@ export default function CreateInvoiceForm() {
       } else {
         const size = carpetSizes[value as string] || 0;
         if (
-          ["موکت معمولی", "موکت پالاز", "دست بافت"].includes(value as string)
+          ["موکت معمولی", "موکت پالاز", "دست بافت", "فرش کناره"].includes(
+            value as string
+          )
         ) {
           updatedItem.square_meters = 0;
         } else if (size > 0) {
@@ -361,6 +365,7 @@ export default function CreateInvoiceForm() {
       "دست بافت",
       "موکت معمولی",
       "موکت پالاز",
+      "فرش کناره",
       "تشک 1 نفره",
       "تشک 2 نفره",
     ];
@@ -551,9 +556,13 @@ export default function CreateInvoiceForm() {
 
                   {/* متراژ (فقط برای موکت و دست‌بافت در حالت متری) */}
                   {serviceType === "carpet" &&
-                    ["موکت معمولی", "موکت پالاز", "دست بافت", "پادری"].includes(
-                      item.carpet_type
-                    ) &&
+                    [
+                      "موکت معمولی",
+                      "موکت پالاز",
+                      "دست بافت",
+                      "پادری",
+                      "فرش کناره",
+                    ].includes(item.carpet_type) &&
                     item.pricing_mode === "meter" && (
                       <div className="col-span-2 sm:col-span-2">
                         <label className="text-xs text-gray-500 mb-1 block">
@@ -578,7 +587,6 @@ export default function CreateInvoiceForm() {
                             }
                           }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-400"
-                          required
                         />
                       </div>
                     )}
@@ -992,9 +1000,7 @@ export default function CreateInvoiceForm() {
           disabled={loading}
           className="w-full bg-linear-to-r from-blue-600 to-blue-700 text-white font-bold py-4 rounded-xl hover:shadow-xl transition disabled:opacity-50 text-lg"
         >
-          {loading
-            ? "در حال صدور فاکتور..."
-            : "صدور فاکتور و ارسال پیامک"}
+          {loading ? "در حال صدور فاکتور..." : "صدور فاکتور و ارسال پیامک"}
         </button>
       </form>
     </div>

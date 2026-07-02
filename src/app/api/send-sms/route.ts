@@ -15,7 +15,10 @@ export async function POST(req: Request) {
   }
 
   const numbersList = phones.join(",");
-  await sendSms(numbersList, text);
+  console.log("Sending to:", numbersList);
+  
+  const result = await sendSms(numbersList, text);
+  console.log("Bulk SMS Result:", result);
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: result.success });
 }

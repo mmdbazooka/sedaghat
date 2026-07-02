@@ -18,6 +18,7 @@ import {
   StickyNote,
   Download,
   HelpCircle,
+  Edit,
 } from "lucide-react";
 
 interface InvoiceItem {
@@ -26,6 +27,9 @@ interface InvoiceItem {
   quantity: number;
   unit_price: number;
   total: number;
+  square_meters?: number;
+  type?: string;
+  pricing_mode?: string;
 }
 
 interface Invoice {
@@ -81,6 +85,23 @@ const paymentStatusColors: Record<string, string> = {
   paid: "bg-green-100 text-green-800",
   cash_on_delivery: "bg-blue-100 text-blue-800",
 };
+
+const getItemOptions = () => [
+  "2 متری",
+  "4 متری",
+  "6 متری",
+  "9 متری",
+  "12 متری",
+  "پادری",
+  "دست بافت",
+  "موکت معمولی",
+  "موکت پالاز",
+  "فرش کناره",
+  "تشک 1 نفره",
+  "تشک 2 نفره",
+];
+
+const sofaOptions = ["7 نفره", "8 نفره", "9 نفره", "نفری"];
 
 const monthNames = [
   "فروردین",
@@ -181,6 +202,79 @@ export default function InvoiceList({
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [noteInvoice, setNoteInvoice] = useState<Invoice | null>(null);
   const [showExportGuide, setShowExportGuide] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [editItems, setEditItems] = useState<InvoiceItem[]>([]);
+  const [editDeliveryPrice, setEditDeliveryPrice] = useState(0);
+  const [editDiscountPercent, setEditDiscountPercent] = useState(0);
+  const [editPaymentStatus, setEditPaymentStatus] = useState<
+    "pending" | "paid" | "cash_on_delivery"
+  >("pending");
+  const [editOrderStatus, setEditOrderStatus] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editNote, setEditNote] = useState("");
+
+  const openEditModal = (inv: Invoice) => {
+    setEditingInvoice(inv);
+    setEditItems([...inv.items]);
+    setEditDeliveryPrice(inv.delivery_price || 0);
+    setEditDiscountPercent(inv.discount_percent || 0);
+    setEditPaymentStatus(inv.payment_status);
+    setEditOrderStatus(inv.order_status);
+    setEditAddress(inv.address || "");
+    setEditNote(inv.note || "");
+    setShowEditModal(true);
+  };
+
+  const saveEdit = () => {
+    if (!editingInvoice) return;
+
+    const subtotal = editItems.reduce((sum, item) => {
+      const qty = item.quantity || 0;
+      const price = item.unit_price || 0;
+      const sm = item.square_meters || 1;
+      return (
+        sum + (item.pricing_mode === "meter" ? qty * price * sm : qty * price)
+      );
+    }, 0);
+    const totalWithDelivery = subtotal + editDeliveryPrice;
+    const discountAmount = (totalWithDelivery * editDiscountPercent) / 100;
+    const finalAmount = totalWithDelivery - discountAmount;
+
+    const updates = {
+      items: editItems,
+      delivery_price: editDeliveryPrice,
+      discount_percent: editDiscountPercent,
+      payment_status: editPaymentStatus as
+        | "pending"
+        | "paid"
+        | "cash_on_delivery",
+      order_status: editOrderStatus,
+      address: editAddress,
+      note: editNote,
+      subtotal,
+      total_with_delivery: totalWithDelivery,
+      discount_amount: discountAmount,
+      final_amount: finalAmount,
+    };
+
+    fetch(`/api/invoices/${editingInvoice._id || editingInvoice.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    }).then((res) => {
+      if (res.ok) {
+        setInvoices(
+          invoices.map((inv) =>
+            (inv._id || inv.id) === (editingInvoice._id || editingInvoice.id)
+              ? { ...inv, ...updates }
+              : inv
+          )
+        );
+        setShowEditModal(false);
+      }
+    });
+  };
 
   const fetchInvoices = () => {
     fetch("/api/invoices")
@@ -481,14 +575,14 @@ export default function InvoiceList({
                       </span>
                     )}
                   </div>
-                  <div className="flex justify-between items-center mt-4">
+                  <div className="flex flex-col gap-2 justify-between items-center mt-4">
                     <span className="font-bold text-green-700 text-sm">
                       {inv.final_amount?.toLocaleString()} تومان
                     </span>
-                    <div className="flex gap-2">
+                    <div className="w-full flex justify-between gap-2">
                       <button
                         onClick={() => viewInvoice(inv.invoice_number)}
-                        className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
+                        className="p-3 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
                         title="مشاهده"
                       >
                         <Eye className="w-5 h-5" />
@@ -497,21 +591,28 @@ export default function InvoiceList({
                         onClick={() =>
                           setEditingStatus(inv._id || inv.id || "")
                         }
-                        className="p-2 bg-yellow-50 text-yellow-600 rounded-lg hover:bg-yellow-100"
+                        className="p-3 bg-yellow-50 text-yellow-600 rounded-lg hover:bg-yellow-100"
                         title="تغییر وضعیت"
                       >
                         <Edit3 className="w-5 h-5" />
                       </button>
                       <button
+                        onClick={() => openEditModal(inv)}
+                        className="p-3 bg-green-50 text-green-600 rounded-lg hover:bg-green-100"
+                        title="ویرایش فاکتور"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+                      <button
                         onClick={() => openNoteModal(inv)}
-                        className="p-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100"
+                        className="p-3 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100"
                         title="یادداشت"
                       >
                         <StickyNote className="w-5 h-5" />
                       </button>
                       <button
                         onClick={() => openDeleteModal(inv)}
-                        className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"
+                        className="p-3 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"
                         title="حذف"
                       >
                         <Trash2 className="w-5 h-5" />
@@ -624,6 +725,13 @@ export default function InvoiceList({
                             title="ویرایش وضعیت"
                           >
                             <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => openEditModal(inv)}
+                            className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100"
+                            title="ویرایش فاکتور"
+                          >
+                            <Edit className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => openNoteModal(inv)}
@@ -769,6 +877,341 @@ export default function InvoiceList({
           </>
         )}
       </div>
+      {/* Edit Modal */}
+      {showEditModal && editingInvoice && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-2xl w-full my-8 text-right">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Edit className="w-5 h-5 text-green-600" />
+                ویرایش فاکتور {editingInvoice.invoice_number}
+              </h4>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* مشتری */}
+              <div className="bg-blue-50 rounded-xl p-3">
+                <p className="text-xs text-gray-500">مشتری:</p>
+                <p className="font-bold">
+                  {editingInvoice.customer_name} -{" "}
+                  {editingInvoice.customer_phone}
+                </p>
+              </div>
+
+              {/* آیتم‌ها */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  اقلام فاکتور
+                </label>
+                {editItems.map((item, idx: number) => (
+                  <div
+                    key={idx}
+                    className="bg-gray-50 p-3 rounded-lg mb-2 space-y-2"
+                  >
+                    {/* ردیف اول - نوع و محاسبه */}
+                    <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end">
+                      {/* نوع */}
+                      <div className="col-span-2 sm:col-span-4">
+                        <label className="text-[10px] text-gray-500 mb-1 block">
+                          نوع
+                        </label>
+                        <select
+                          value={item.carpet_type || ""}
+                          onChange={(e) => {
+                            const newItems = [...editItems];
+                            newItems[idx] = {
+                              ...newItems[idx],
+                              carpet_type: e.target.value,
+                            };
+                            setEditItems(newItems);
+                          }}
+                          className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm outline-none"
+                        >
+                          <option value="">-- انتخاب --</option>
+                          {editingInvoice?.service_type === "sofa"
+                            ? sofaOptions.map((opt) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))
+                            : getItemOptions().map((opt) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))}
+                        </select>
+                      </div>
+
+                      {/* محاسبه */}
+                      <div className="col-span-2 sm:col-span-2">
+                        <label className="text-[10px] text-gray-500 mb-1 block">
+                          محاسبه
+                        </label>
+                        <select
+                          value={item.pricing_mode || "total"}
+                          onChange={(e) => {
+                            const newItems = [...editItems];
+                            const newMode = e.target.value;
+                            newItems[idx] = {
+                              ...newItems[idx],
+                              pricing_mode: newMode,
+                              total:
+                                newMode === "meter"
+                                  ? (item.quantity || 0) *
+                                    (item.unit_price || 0) *
+                                    (item.square_meters || 1)
+                                  : (item.quantity || 0) *
+                                    (item.unit_price || 0),
+                            };
+                            setEditItems(newItems);
+                          }}
+                          className="w-full px-1 py-2 border border-gray-300 rounded-lg text-[10px] sm:text-xs outline-none"
+                        >
+                          <option value="meter">متری</option>
+                          <option value="total">کل</option>
+                        </select>
+                      </div>
+
+                      {/* متراژ - فقط متری */}
+                      {item.pricing_mode === "meter" && (
+                        <div className="col-span-2 sm:col-span-2">
+                          <label className="text-[10px] text-gray-500 mb-1 block">
+                            متراژ
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={
+                              item.square_meters === 0 ? "" : item.square_meters
+                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const newItems = [...editItems];
+                              const sm = val === "" ? 0 : parseFloat(val) || 0;
+                              newItems[idx] = {
+                                ...newItems[idx],
+                                square_meters: sm,
+                                total:
+                                  (item.quantity || 0) *
+                                  (item.unit_price || 0) *
+                                  (sm || 1),
+                              };
+                              setEditItems(newItems);
+                            }}
+                            placeholder="متر"
+                            className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm outline-none"
+                          />
+                        </div>
+                      )}
+
+                      {/* قیمت */}
+                      <div
+                        className={
+                          item.pricing_mode === "meter"
+                            ? "col-span-2 sm:col-span-2"
+                            : "col-span-2 sm:col-span-2"
+                        }
+                      >
+                        <label className="text-[10px] text-gray-500 mb-1 block">
+                          قیمت
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={item.unit_price === 0 ? "" : item.unit_price}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const newItems = [...editItems];
+                            const price = val === "" ? 0 : parseInt(val) || 0;
+                            newItems[idx] = {
+                              ...newItems[idx],
+                              unit_price: price,
+                              total:
+                                (item.quantity || 0) *
+                                price *
+                                (item.pricing_mode === "meter"
+                                  ? item.square_meters || 1
+                                  : 1),
+                            };
+                            setEditItems(newItems);
+                          }}
+                          placeholder="تومان"
+                          className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm outline-none"
+                        />
+                      </div>
+
+                      {/* تعداد */}
+                      <div className="col-span-2 sm:col-span-1">
+                        <label className="text-[10px] text-gray-500 mb-1 block">
+                          تعداد
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={item.quantity === 1 ? "" : item.quantity}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const newItems = [...editItems];
+                            const qty = val === "" ? 1 : parseInt(val) || 1;
+                            newItems[idx] = {
+                              ...newItems[idx],
+                              quantity: qty,
+                              total:
+                                qty *
+                                (item.unit_price || 0) *
+                                (item.pricing_mode === "meter"
+                                  ? item.square_meters || 1
+                                  : 1),
+                            };
+                            setEditItems(newItems);
+                          }}
+                          placeholder="عدد"
+                          className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm outline-none"
+                        />
+                      </div>
+
+                      {/* جمع */}
+                      <div className="col-span-2 sm:col-span-1 text-center">
+                        <label className="text-[10px] text-gray-500 mb-1 block">
+                          جمع
+                        </label>
+                        <div className="py-2 text-xs sm:text-sm font-bold text-green-700">
+                          {item.total?.toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* کرایه و تخفیف */}
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500">کرایه حمل</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={editDeliveryPrice === 0 ? "" : editDeliveryPrice}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditDeliveryPrice(val === "" ? 0 : parseInt(val) || 0);
+                    }}
+                    className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">درصد تخفیف</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={editDiscountPercent === 0 ? "" : editDiscountPercent}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditDiscountPercent(
+                        val === "" ? 0 : parseInt(val) || 0
+                      );
+                    }}
+                    className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm outline-none"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500">مبلغ نهایی</label>
+                  <div className="py-2 font-bold text-green-700">
+                    {(() => {
+                      const sub = editItems.reduce((s, i) => {
+                        const sm =
+                          i.pricing_mode === "meter" ? i.square_meters || 1 : 1;
+                        return s + (i.quantity || 0) * (i.unit_price || 0) * sm;
+                      }, 0);
+                      const twd = sub + editDeliveryPrice;
+                      const da = (twd * editDiscountPercent) / 100;
+                      return (twd - da).toLocaleString();
+                    })()}{" "}
+                    تومان
+                  </div>
+                </div>
+              </div>
+
+              {/* وضعیت‌ها */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500">وضعیت پرداخت</label>
+                  <select
+                    value={editPaymentStatus}
+                    onChange={(e) =>
+                      setEditPaymentStatus(
+                        e.target.value as
+                          | "pending"
+                          | "paid"
+                          | "cash_on_delivery"
+                      )
+                    }
+                    className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm outline-none"
+                  >
+                    <option value="pending">در انتظار</option>
+                    <option value="paid">پرداخت شده</option>
+                    <option value="cash_on_delivery">پرداخت در محل</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">وضعیت سفارش</label>
+                  <select
+                    value={editOrderStatus}
+                    onChange={(e) => setEditOrderStatus(e.target.value)}
+                    className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm outline-none"
+                  >
+                    {Object.entries(orderStatusLabels).map(([v, l]) => (
+                      <option key={v} value={v}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-500">آدرس</label>
+                <input
+                  type="text"
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">یادداشت</label>
+                <textarea
+                  value={editNote}
+                  onChange={(e) => setEditNote(e.target.value)}
+                  rows={2}
+                  className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 py-2 bg-gray-100 rounded-xl text-sm hover:bg-gray-200"
+              >
+                انصراف
+              </button>
+              <button
+                onClick={saveEdit}
+                className="flex-1 py-2 bg-green-500 text-white rounded-xl text-sm hover:bg-green-600"
+              >
+                ذخیره تغییرات
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showExportGuide && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full text-right">

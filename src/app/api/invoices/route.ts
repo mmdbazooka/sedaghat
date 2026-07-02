@@ -92,11 +92,11 @@ export async function POST(req: Request) {
   const invoiceLink = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/invoice/${newInvoice.invoice_number}`;
 
   if (payment_status === 'paid') {
-    smsText = `قالیشویی و مبل شویی صداقت\nلینک مشاهده فاکتور:\n${invoiceLink}`;
+    smsText = `قالیشویی و مبل شویی صداقت\nبا مدیریت خانم مهندس ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
   } else if (payment_status === 'pending') {
-    smsText = `قالیشویی و مبل شویی صداقت\nمبلغ: ${finalAmount.toLocaleString()} تومان\n6037998215922260\nبه نام سمیه ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
+    smsText = `قالیشویی و مبل شویی صداقت\nمبلغ: ${finalAmount.toLocaleString()} تومان\n6037998215922260\nبه نام سمیه ولی\nبا مدیریت خانم مهندس ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
   } else if (payment_status === 'cash_on_delivery') {
-    smsText = `قالیشویی و مبل شویی صداقت\nمبلغ: ${finalAmount.toLocaleString()} تومان (پرداخت در محل)\nلینک مشاهده فاکتور:\n${invoiceLink}`;
+    smsText = `قالیشویی و مبل شویی صداقت\nمبلغ: ${finalAmount.toLocaleString()} تومان (پرداخت در محل)\nبا مدیریت خانم مهندس ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
   }
 
   await sendSms(customer.phone, smsText);
