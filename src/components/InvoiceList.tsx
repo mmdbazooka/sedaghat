@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Fragment } from "react";
 import {
   Search,
   Eye,
@@ -30,6 +30,11 @@ interface InvoiceItem {
   square_meters?: number;
   type?: string;
   pricing_mode?: string;
+  extra_services?: {
+    stain_removal?: { enabled: boolean; price: number };
+    double_wash?: { enabled: boolean; price: number };
+    premium_wash?: { enabled: boolean; price: number };
+  };
 }
 
 interface Invoice {
@@ -314,10 +319,18 @@ export default function InvoiceList({
       b.localeCompare(a)
     );
     const totalOrders = filteredForStats.length;
-    const totalRevenue = filteredForStats.reduce(
-      (sum, inv) => sum + inv.final_amount,
-      0
-    );
+
+    // ✅ تفکیک بر اساس service_type
+    const carpetRevenue = filteredForStats
+      .filter((inv) => inv.service_type !== "sofa")
+      .reduce((sum, inv) => sum + inv.final_amount, 0);
+
+    const sofaRevenue = filteredForStats
+      .filter((inv) => inv.service_type === "sofa")
+      .reduce((sum, inv) => sum + inv.final_amount, 0);
+
+    const totalRevenue = carpetRevenue + sofaRevenue;
+
     const activeOrders = filteredForStats.filter(
       (inv) => !["delivered", "cancelled", "ready"].includes(inv.order_status)
     ).length;
@@ -328,6 +341,8 @@ export default function InvoiceList({
     return {
       totalOrders,
       totalRevenue,
+      carpetRevenue,
+      sofaRevenue,
       activeOrders,
       readyOrders,
       availableMonths: sortedMonths,
@@ -454,6 +469,10 @@ export default function InvoiceList({
           <p className="text-xl sm:text-2xl font-extrabold text-green-700">
             {formatPrice(stats.totalRevenue)}
           </p>
+          <div className="flex justify-between text-[10px] sm:text-xs text-gray-500 mt-1 border-t pt-1">
+            <span>فرش: {formatPrice(stats.carpetRevenue)}</span>
+            <span>مبل: {formatPrice(stats.sofaRevenue)}</span>
+          </div>
         </div>
         <div className="bg-white rounded-2xl shadow p-3 sm:p-4 border border-cyan-100">
           <div className="flex items-center gap-2 mb-2">
@@ -790,6 +809,42 @@ export default function InvoiceList({
                       <p>{noteInvoice.note || "بدون یادداشت"}</p>
                     </div>
                   </div>
+                  {/* خدمات اضافه */}
+                  {noteInvoice.items?.some(
+                    (item: InvoiceItem) =>
+                      item.extra_services?.stain_removal?.enabled ||
+                      item.extra_services?.double_wash?.enabled ||
+                      item.extra_services?.premium_wash?.enabled
+                  ) && (
+                    <div className="bg-purple-50 rounded-xl p-3 mt-2">
+                      <p className="text-xs text-gray-500 mb-1">خدمات اضافه:</p>
+                      {noteInvoice.items.map((item: InvoiceItem, i: number) => (
+                        <div key={i} className="text-xs text-gray-600">
+                          {item.extra_services?.stain_removal?.enabled && (
+                            <p>
+                              🧹 لکه‌برداری:{" "}
+                              {item.extra_services.stain_removal.price?.toLocaleString()}{" "}
+                              ت
+                            </p>
+                          )}
+                          {item.extra_services?.double_wash?.enabled && (
+                            <p>
+                              🔄 دوبار شو:{" "}
+                              {item.extra_services.double_wash.price?.toLocaleString()}{" "}
+                              ت
+                            </p>
+                          )}
+                          {item.extra_services?.premium_wash?.enabled && (
+                            <p>
+                              ✨ اعلا شور:{" "}
+                              {item.extra_services.premium_wash.price?.toLocaleString()}{" "}
+                              ت
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <button
                     onClick={() => setShowNoteModal(false)}
                     className="w-full mt-4 py-2 bg-gray-100 rounded-xl text-sm hover:bg-gray-200"
@@ -943,183 +998,343 @@ export default function InvoiceList({
                   اقلام فاکتور
                 </label>
                 {editItems.map((item, idx: number) => (
-                  <div
-                    key={idx}
-                    className="bg-gray-50 p-3 rounded-lg mb-2 space-y-2"
-                  >
-                    {/* ردیف اول - نوع و محاسبه */}
-                    <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end">
-                      {/* نوع */}
-                      <div className="col-span-2 sm:col-span-4">
-                        <label className="text-[10px] text-gray-500 mb-1 block">
-                          نوع
-                        </label>
-                        <select
-                          value={item.carpet_type || ""}
-                          onChange={(e) => {
-                            const newItems = [...editItems];
-                            newItems[idx] = {
-                              ...newItems[idx],
-                              carpet_type: e.target.value,
-                            };
-                            setEditItems(newItems);
-                          }}
-                          className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm outline-none"
-                        >
-                          <option value="">-- انتخاب --</option>
-                          {editingInvoice?.service_type === "sofa"
-                            ? sofaOptions.map((opt) => (
-                                <option key={opt} value={opt}>
-                                  {opt}
-                                </option>
-                              ))
-                            : getItemOptions().map((opt) => (
-                                <option key={opt} value={opt}>
-                                  {opt}
-                                </option>
-                              ))}
-                        </select>
-                      </div>
+                  <Fragment key={idx}>
+                    <div className="bg-gray-50 p-3 rounded-lg mb-2 space-y-2">
+                      {/* ردیف اول - نوع و محاسبه */}
+                      <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end">
+                        {/* نوع */}
+                        <div className="col-span-2 sm:col-span-3">
+                          <label className="text-[10px] text-gray-500 mb-1 block">
+                            نوع
+                          </label>
+                          <select
+                            value={item.carpet_type || ""}
+                            onChange={(e) => {
+                              const newItems = [...editItems];
+                              newItems[idx] = {
+                                ...newItems[idx],
+                                carpet_type: e.target.value,
+                              };
+                              setEditItems(newItems);
+                            }}
+                            className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm outline-none"
+                          >
+                            <option value="">-- انتخاب --</option>
+                            {editingInvoice?.service_type === "sofa"
+                              ? sofaOptions.map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))
+                              : getItemOptions().map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                          </select>
+                        </div>
 
-                      {/* محاسبه */}
-                      <div className="col-span-2 sm:col-span-2">
-                        <label className="text-[10px] text-gray-500 mb-1 block">
-                          محاسبه
-                        </label>
-                        <select
-                          value={item.pricing_mode || "total"}
-                          onChange={(e) => {
-                            const newItems = [...editItems];
-                            const newMode = e.target.value;
-                            newItems[idx] = {
-                              ...newItems[idx],
-                              pricing_mode: newMode,
-                              total:
-                                newMode === "meter"
-                                  ? (item.quantity || 0) *
-                                    (item.unit_price || 0) *
-                                    (item.square_meters || 1)
-                                  : (item.quantity || 0) *
-                                    (item.unit_price || 0),
-                            };
-                            setEditItems(newItems);
-                          }}
-                          className="w-full px-1 py-2 border border-gray-300 rounded-lg text-[10px] sm:text-xs outline-none"
-                        >
-                          <option value="meter">متری</option>
-                          <option value="total">کل</option>
-                        </select>
-                      </div>
-
-                      {/* متراژ - فقط متری */}
-                      {item.pricing_mode === "meter" && (
+                        {/* محاسبه */}
                         <div className="col-span-2 sm:col-span-2">
                           <label className="text-[10px] text-gray-500 mb-1 block">
-                            متراژ
+                            محاسبه
+                          </label>
+                          <select
+                            value={item.pricing_mode || "total"}
+                            onChange={(e) => {
+                              const newItems = [...editItems];
+                              const newMode = e.target.value;
+                              newItems[idx] = {
+                                ...newItems[idx],
+                                pricing_mode: newMode,
+                                total:
+                                  newMode === "meter"
+                                    ? (item.quantity || 0) *
+                                      (item.unit_price || 0) *
+                                      (item.square_meters || 1)
+                                    : (item.quantity || 0) *
+                                      (item.unit_price || 0),
+                              };
+                              setEditItems(newItems);
+                            }}
+                            className="w-full px-1 py-2 border border-gray-300 rounded-lg text-[10px] sm:text-xs outline-none"
+                          >
+                            <option value="meter">متری</option>
+                            <option value="total">کل</option>
+                          </select>
+                        </div>
+
+                        {/* متراژ - فقط متری */}
+                        {item.pricing_mode === "meter" && (
+                          <div className="col-span-2 sm:col-span-2">
+                            <label className="text-[10px] text-gray-500 mb-1 block">
+                              متراژ
+                            </label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={
+                                item.square_meters === 0
+                                  ? ""
+                                  : item.square_meters
+                              }
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const newItems = [...editItems];
+                                const sm =
+                                  val === "" ? 0 : parseFloat(val) || 0;
+                                newItems[idx] = {
+                                  ...newItems[idx],
+                                  square_meters: sm,
+                                  total:
+                                    (item.quantity || 0) *
+                                    (item.unit_price || 0) *
+                                    (sm || 1),
+                                };
+                                setEditItems(newItems);
+                              }}
+                              placeholder="متر"
+                              className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm outline-none"
+                            />
+                          </div>
+                        )}
+
+                        {/* قیمت */}
+                        <div
+                          className={
+                            item.pricing_mode === "meter"
+                              ? "col-span-2 sm:col-span-2"
+                              : "col-span-2 sm:col-span-2"
+                          }
+                        >
+                          <label className="text-[10px] text-gray-500 mb-1 block">
+                            قیمت
                           </label>
                           <input
                             type="text"
                             inputMode="numeric"
-                            value={
-                              item.square_meters === 0 ? "" : item.square_meters
-                            }
+                            value={item.unit_price === 0 ? "" : item.unit_price}
                             onChange={(e) => {
                               const val = e.target.value;
                               const newItems = [...editItems];
-                              const sm = val === "" ? 0 : parseFloat(val) || 0;
+                              const price = val === "" ? 0 : parseInt(val) || 0;
                               newItems[idx] = {
                                 ...newItems[idx],
-                                square_meters: sm,
+                                unit_price: price,
                                 total:
                                   (item.quantity || 0) *
-                                  (item.unit_price || 0) *
-                                  (sm || 1),
+                                  price *
+                                  (item.pricing_mode === "meter"
+                                    ? item.square_meters || 1
+                                    : 1),
                               };
                               setEditItems(newItems);
                             }}
-                            placeholder="متر"
+                            placeholder="تومان"
                             className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm outline-none"
                           />
                         </div>
-                      )}
 
-                      {/* قیمت */}
-                      <div
-                        className={
-                          item.pricing_mode === "meter"
-                            ? "col-span-2 sm:col-span-2"
-                            : "col-span-2 sm:col-span-2"
-                        }
-                      >
-                        <label className="text-[10px] text-gray-500 mb-1 block">
-                          قیمت
-                        </label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={item.unit_price === 0 ? "" : item.unit_price}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const newItems = [...editItems];
-                            const price = val === "" ? 0 : parseInt(val) || 0;
-                            newItems[idx] = {
-                              ...newItems[idx],
-                              unit_price: price,
-                              total:
-                                (item.quantity || 0) *
-                                price *
-                                (item.pricing_mode === "meter"
-                                  ? item.square_meters || 1
-                                  : 1),
-                            };
-                            setEditItems(newItems);
-                          }}
-                          placeholder="تومان"
-                          className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm outline-none"
-                        />
-                      </div>
+                        {/* تعداد */}
+                        <div className="col-span-2 sm:col-span-1">
+                          <label className="text-[10px] text-gray-500 mb-1 block">
+                            تعداد
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={item.quantity === 1 ? "" : item.quantity}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const newItems = [...editItems];
+                              const qty = val === "" ? 1 : parseInt(val) || 1;
+                              newItems[idx] = {
+                                ...newItems[idx],
+                                quantity: qty,
+                                total:
+                                  qty *
+                                  (item.unit_price || 0) *
+                                  (item.pricing_mode === "meter"
+                                    ? item.square_meters || 1
+                                    : 1),
+                              };
+                              setEditItems(newItems);
+                            }}
+                            placeholder="عدد"
+                            className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm outline-none"
+                          />
+                        </div>
 
-                      {/* تعداد */}
-                      <div className="col-span-2 sm:col-span-1">
-                        <label className="text-[10px] text-gray-500 mb-1 block">
-                          تعداد
-                        </label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={item.quantity === 1 ? "" : item.quantity}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const newItems = [...editItems];
-                            const qty = val === "" ? 1 : parseInt(val) || 1;
-                            newItems[idx] = {
-                              ...newItems[idx],
-                              quantity: qty,
-                              total:
-                                qty *
-                                (item.unit_price || 0) *
-                                (item.pricing_mode === "meter"
-                                  ? item.square_meters || 1
-                                  : 1),
-                            };
-                            setEditItems(newItems);
-                          }}
-                          placeholder="عدد"
-                          className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm outline-none"
-                        />
-                      </div>
-
-                      {/* جمع */}
-                      <div className="col-span-2 sm:col-span-1 text-center">
-                        <label className="text-[10px] text-gray-500 mb-1 block">
-                          جمع
-                        </label>
-                        <div className="py-2 text-xs sm:text-sm font-bold text-green-700">
-                          {item.total?.toLocaleString()}
+                        {/* جمع */}
+                        <div className="col-span-2 sm:col-span-1 text-center">
+                          <label className="text-[10px] text-gray-500 mb-1 block">
+                            جمع
+                          </label>
+                          <div className="py-2 text-xs sm:text-sm font-bold text-green-700">
+                            {item.total?.toLocaleString()}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                    {/* خدمات اضافه */}
+                    <div className="col-span-full flex flex-wrap gap-2 text-[10px] mt-1">
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={
+                            item.extra_services?.stain_removal?.enabled || false
+                          }
+                          onChange={(e) => {
+                            const newItems = [...editItems];
+                            newItems[idx] = {
+                              ...newItems[idx],
+                              extra_services: {
+                                ...newItems[idx].extra_services,
+                                stain_removal: {
+                                  enabled: e.target.checked,
+                                  price:
+                                    newItems[idx].extra_services?.stain_removal
+                                      ?.price || 0,
+                                },
+                              },
+                            };
+                            setEditItems(newItems);
+                          }}
+                          className="w-3 h-3"
+                        />
+                        لکه‌برداری
+                        {item.extra_services?.stain_removal?.enabled && (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={
+                              item.extra_services?.stain_removal?.price || ""
+                            }
+                            onChange={(e) => {
+                              const newItems = [...editItems];
+                              newItems[idx] = {
+                                ...newItems[idx],
+                                extra_services: {
+                                  ...newItems[idx].extra_services,
+                                  stain_removal: {
+                                    enabled: true,
+                                    price: parseInt(e.target.value) || 0,
+                                  },
+                                },
+                              };
+                              setEditItems(newItems);
+                            }}
+                            className="w-14 px-1 py-0.5 border rounded text-[10px] outline-none"
+                            placeholder="تومان"
+                          />
+                        )}
+                      </label>
+
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={
+                            item.extra_services?.double_wash?.enabled || false
+                          }
+                          onChange={(e) => {
+                            const newItems = [...editItems];
+                            newItems[idx] = {
+                              ...newItems[idx],
+                              extra_services: {
+                                ...newItems[idx].extra_services,
+                                double_wash: {
+                                  enabled: e.target.checked,
+                                  price:
+                                    newItems[idx].extra_services?.double_wash
+                                      ?.price || 0,
+                                },
+                              },
+                            };
+                            setEditItems(newItems);
+                          }}
+                          className="w-3 h-3"
+                        />
+                        دوبار شو
+                        {item.extra_services?.double_wash?.enabled && (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={
+                              item.extra_services?.double_wash?.price || ""
+                            }
+                            onChange={(e) => {
+                              const newItems = [...editItems];
+                              newItems[idx] = {
+                                ...newItems[idx],
+                                extra_services: {
+                                  ...newItems[idx].extra_services,
+                                  double_wash: {
+                                    enabled: true,
+                                    price: parseInt(e.target.value) || 0,
+                                  },
+                                },
+                              };
+                              setEditItems(newItems);
+                            }}
+                            className="w-14 px-1 py-0.5 border rounded text-[10px] outline-none"
+                            placeholder="تومان"
+                          />
+                        )}
+                      </label>
+
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={
+                            item.extra_services?.premium_wash?.enabled || false
+                          }
+                          onChange={(e) => {
+                            const newItems = [...editItems];
+                            newItems[idx] = {
+                              ...newItems[idx],
+                              extra_services: {
+                                ...newItems[idx].extra_services,
+                                premium_wash: {
+                                  enabled: e.target.checked,
+                                  price:
+                                    newItems[idx].extra_services?.premium_wash
+                                      ?.price || 0,
+                                },
+                              },
+                            };
+                            setEditItems(newItems);
+                          }}
+                          className="w-3 h-3"
+                        />
+                        اعلا شور
+                        {item.extra_services?.premium_wash?.enabled && (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={
+                              item.extra_services?.premium_wash?.price || ""
+                            }
+                            onChange={(e) => {
+                              const newItems = [...editItems];
+                              newItems[idx] = {
+                                ...newItems[idx],
+                                extra_services: {
+                                  ...newItems[idx].extra_services,
+                                  premium_wash: {
+                                    enabled: true,
+                                    price: parseInt(e.target.value) || 0,
+                                  },
+                                },
+                              };
+                              setEditItems(newItems);
+                            }}
+                            className="w-14 px-1 py-0.5 border rounded text-[10px] outline-none"
+                            placeholder="تومان"
+                          />
+                        )}
+                      </label>
+                    </div>
+                  </Fragment>
                 ))}
               </div>
 

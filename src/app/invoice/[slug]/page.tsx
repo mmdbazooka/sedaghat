@@ -1,6 +1,21 @@
 import { getInvoices, Invoice } from "@/lib/db";
 import { PhoneCall } from "lucide-react";
 import { notFound } from "next/navigation";
+import { Fragment } from "react/jsx-runtime";
+
+interface ItemType {
+  carpet_type?: string;
+  square_meters?: number;
+  unit_price?: number;
+  pricing_mode?: string;
+  quantity?: number;
+  total?: number;
+  extra_services?: {
+    stain_removal?: { enabled: boolean; price: number };
+    double_wash?: { enabled: boolean; price: number };
+    premium_wash?: { enabled: boolean; price: number };
+  };
+}
 
 const orderStatusLabels: Record<string, string> = {
   registered: "ثبت شده",
@@ -32,7 +47,6 @@ export default async function InvoicePage({
   const invoice = invoices.find((inv) => inv.invoice_number === slug) as
     | Invoice
     | undefined;
-
   if (!invoice) {
     notFound();
   }
@@ -51,6 +65,13 @@ export default async function InvoicePage({
 
   const serviceTypeLabel =
     invoice.service_type === "sofa" ? "شستشوی مبل" : "قالیشویی";
+
+  const hasExtraServices = invoice.items.some(
+    (item: ItemType) =>
+      item.extra_services?.stain_removal?.enabled ||
+      item.extra_services?.double_wash?.enabled ||
+      item.extra_services?.premium_wash?.enabled
+  );
 
   return (
     <div
@@ -133,39 +154,67 @@ export default async function InvoicePage({
               اقلام فاکتور
             </h3>
             <div className="block sm:hidden space-y-3">
-              {invoice.items.map((item, index) => (
-                <div
-                  key={index}
-                  className="bg-gray-50 rounded-xl p-3 border border-gray-100"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="font-medium text-sm">
-                      {item.carpet_type}
-                    </span>
-                    <span className="font-bold text-green-700 text-sm">
-                      {item.total?.toLocaleString()} تومان
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
-                    {invoice.service_type !== "sofa" && (
+              {invoice.items.map((item: ItemType, index: number) => {
+                return (
+                  <div
+                    key={index}
+                    className="bg-gray-50 rounded-xl p-3 border border-gray-100"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="font-medium text-sm">
+                        {item.carpet_type}
+                      </span>
+                      <span className="font-bold text-green-700 text-sm">
+                        {item.total?.toLocaleString()} تومان
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
+                      {invoice.service_type !== "sofa" && (
+                        <div>
+                          <span className="text-gray-400">متراژ: </span>
+                          {item.square_meters && item.square_meters > 0
+                            ? item.square_meters
+                            : "-"}
+                        </div>
+                      )}
                       <div>
-                        <span className="text-gray-400">متراژ: </span>
-                        {item.square_meters > 0 ? item.square_meters : "-"}
+                        <span className="text-gray-400">قیمت: </span>
+                        {item.pricing_mode === "meter"
+                          ? `${item.unit_price?.toLocaleString()} متری`
+                          : item.unit_price?.toLocaleString()}
                       </div>
-                    )}
-                    <div>
-                      <span className="text-gray-400">قیمت: </span>
-                      {item.pricing_mode === "meter"
-                        ? `${item.unit_price?.toLocaleString()} متری`
-                        : item.unit_price?.toLocaleString()}
+                      <div>
+                        <span className="text-gray-400">تعداد: </span>
+                        {item.quantity}
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-gray-400">تعداد: </span>
-                      {item.quantity}
+                    {/* خدمات اضافه - موبایل */}
+                    <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
+                      {item.extra_services?.stain_removal?.enabled && (
+                        <p className="text-xs text-gray-500">
+                          🧹 لکه‌برداری:{" "}
+                          {item.extra_services.stain_removal.price?.toLocaleString()}{" "}
+                          تومان
+                        </p>
+                      )}
+                      {item.extra_services?.double_wash?.enabled && (
+                        <p className="text-xs text-gray-500">
+                          🔄 دوبار شو:{" "}
+                          {item.extra_services.double_wash.price?.toLocaleString()}{" "}
+                          تومان
+                        </p>
+                      )}
+                      {item.extra_services?.premium_wash?.enabled && (
+                        <p className="text-xs text-gray-500">
+                          ✨ اعلا شور:{" "}
+                          {item.extra_services.premium_wash.price?.toLocaleString()}{" "}
+                          تومان
+                        </p>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-right">
@@ -181,26 +230,69 @@ export default async function InvoicePage({
                   </tr>
                 </thead>
                 <tbody>
-                  {invoice.items.map((item, index) => (
-                    <tr key={index} className="border-b border-gray-100">
-                      <td className="py-3 px-2 text-sm">{item.carpet_type}</td>
-                      {invoice.service_type !== "sofa" && (
-                        <td className="py-3 px-2 text-center text-sm">
-                          {item.square_meters > 0 ? item.square_meters : "-"}
+                  {invoice.items.map((item: ItemType, index: number) => (
+                    <Fragment key={index}>
+                      {/* ردیف اصلی آیتم */}
+                      <tr className="border-b border-gray-100">
+                        <td className="py-3 px-2 text-sm">
+                          {item.carpet_type}
                         </td>
+                        {invoice.service_type !== "sofa" && (
+                          <td className="py-3 px-2 text-center text-sm">
+                            {item.square_meters && item.square_meters > 0
+                              ? item.square_meters
+                              : "-"}
+                          </td>
+                        )}
+                        <td className="py-3 px-2 text-sm">
+                          {item.pricing_mode === "meter"
+                            ? `${item.unit_price?.toLocaleString()} (متری)`
+                            : item.unit_price?.toLocaleString()}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm">
+                          {item.quantity}
+                        </td>
+                        <td className="py-3 px-2 font-medium text-sm">
+                          {item.total?.toLocaleString()}
+                        </td>
+                      </tr>
+
+                      {/* ردیف خدمات اضافه - فقط برای همین آیتم */}
+                      {(item.extra_services?.stain_removal?.enabled ||
+                        item.extra_services?.double_wash?.enabled ||
+                        item.extra_services?.premium_wash?.enabled) && (
+                        <tr className="bg-gray-50">
+                          <td
+                            colSpan={invoice.service_type !== "sofa" ? 5 : 4}
+                            className="py-2 px-2"
+                          >
+                            <div className="text-xs text-gray-500 flex gap-4">
+                              {item.extra_services?.stain_removal?.enabled && (
+                                <span>
+                                  🧹 لکه‌برداری:{" "}
+                                  {item.extra_services.stain_removal.price?.toLocaleString()}{" "}
+                                  تومان
+                                </span>
+                              )}
+                              {item.extra_services?.double_wash?.enabled && (
+                                <span>
+                                  🔄 دوبار شو:{" "}
+                                  {item.extra_services.double_wash.price?.toLocaleString()}{" "}
+                                  تومان
+                                </span>
+                              )}
+                              {item.extra_services?.premium_wash?.enabled && (
+                                <span>
+                                  ✨ اعلا شور:{" "}
+                                  {item.extra_services.premium_wash.price?.toLocaleString()}{" "}
+                                  تومان
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                      <td className="py-3 px-2 text-sm">
-                        {item.pricing_mode === "meter"
-                          ? `${item.unit_price?.toLocaleString()} (متری)`
-                          : item.unit_price?.toLocaleString()}
-                      </td>
-                      <td className="py-3 px-2 text-center text-sm">
-                        {item.quantity}
-                      </td>
-                      <td className="py-3 px-2 font-medium text-sm">
-                        {item.total?.toLocaleString()}
-                      </td>
-                    </tr>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -238,6 +330,25 @@ export default async function InvoicePage({
             <div className="flex justify-between text-base sm:text-lg font-extrabold text-green-700 border-t border-blue-200 pt-2">
               <span>مبلغ قابل پرداخت:</span>
               <span>{invoice.final_amount?.toLocaleString()} تومان</span>
+            </div>
+
+            {/* شماره کارت */}
+            <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-3 sm:p-4 mt-3 text-center space-y-2">
+              <p className="text-sm sm:text-base font-bold text-blue-800">
+                💳 اطلاعات پرداخت
+              </p>
+              <div className="bg-white rounded-xl p-3 border border-blue-200 shadow-inner">
+                <code
+                  className="text-lg sm:text-xl font-extrabold text-blue-700 tracking-wider select-all break-all"
+                  dir="ltr"
+                >
+                  6037-9982-1592-2260
+                </code>
+              </div>
+              <p className="text-sm sm:text-base font-medium text-gray-700">
+                به نام:{" "}
+                <span className="text-blue-800 font-bold">سمیه ولی</span>
+              </p>
             </div>
           </div>
 

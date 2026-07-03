@@ -25,6 +25,11 @@ export interface InvoiceItem {
   pricing_mode: "meter" | "total";
   quantity: number;
   total: number;
+  extra_services?: {
+    stain_removal?: { enabled: boolean; price: number }; // لکه‌برداری
+    double_wash?: { enabled: boolean; price: number }; // دوبار شو
+    premium_wash?: { enabled: boolean; price: number }; // اعلا شور
+  };
 }
 
 export default function CreateInvoiceForm() {
@@ -40,6 +45,11 @@ export default function CreateInvoiceForm() {
       pricing_mode: "meter",
       quantity: 1,
       total: 0,
+      extra_services: {
+        stain_removal: { enabled: false, price: 0 },
+        double_wash: { enabled: false, price: 0 },
+        premium_wash: { enabled: false, price: 0 },
+      },
     },
   ]);
   const [serviceType, setServiceType] = useState<"carpet" | "sofa">("carpet");
@@ -137,6 +147,11 @@ export default function CreateInvoiceForm() {
         pricing_mode: serviceType === "sofa" ? "total" : "meter",
         quantity: 1,
         total: serviceType === "sofa" ? sofaPrices["7 نفره"] : 0,
+        extra_services: {
+          stain_removal: { enabled: false, price: 0 },
+          double_wash: { enabled: false, price: 0 },
+          premium_wash: { enabled: false, price: 0 },
+        },
       },
     ]);
   };
@@ -147,6 +162,25 @@ export default function CreateInvoiceForm() {
     }
   };
 
+  const calcTotal = (it: InvoiceItem): number => {
+    let base = 0;
+    if (serviceType === "sofa" && it.carpet_type === "نفری") {
+      it.unit_price = 500000;
+      base = it.quantity * 500000;
+    } else if (it.pricing_mode === "meter") {
+      base = it.quantity * it.square_meters * it.unit_price;
+    } else {
+      base = it.quantity * it.unit_price;
+    }
+    if (it.extra_services?.stain_removal?.enabled)
+      base += it.extra_services.stain_removal.price || 0;
+    if (it.extra_services?.double_wash?.enabled)
+      base += it.extra_services.double_wash.price || 0;
+    if (it.extra_services?.premium_wash?.enabled)
+      base += it.extra_services.premium_wash.price || 0;
+    return base;
+  };
+
   const updateItem = (
     index: number,
     field: keyof InvoiceItem,
@@ -155,7 +189,6 @@ export default function CreateInvoiceForm() {
     const newItems = [...items];
     const updatedItem = { ...newItems[index], [field]: value };
 
-    // وقتی نوع فرش/موکت/مبل عوض میشه
     if (field === "carpet_type") {
       if (serviceType === "sofa") {
         updatedItem.unit_price = sofaPrices[value as string] || 0;
@@ -172,34 +205,14 @@ export default function CreateInvoiceForm() {
           updatedItem.square_meters = size;
         }
         updatedItem.unit_price = meterPrices[value as string] || 0;
-
-        // ✅ تشک فقط کل
         if (["تشک 1 نفره", "تشک 2 نفره"].includes(value as string)) {
           updatedItem.pricing_mode = "total";
         }
       }
     }
 
-    // محاسبه total
-    if (serviceType === "sofa" && updatedItem.carpet_type === "نفری") {
-      updatedItem.total = updatedItem.quantity * 500000;
-      updatedItem.unit_price = 500000;
-    } else if (updatedItem.pricing_mode === "meter") {
-      updatedItem.total =
-        updatedItem.quantity *
-        updatedItem.square_meters *
-        updatedItem.unit_price;
-    } else {
-      updatedItem.total = updatedItem.quantity * updatedItem.unit_price;
-    }
-
-    if (
-      field === "quantity" &&
-      serviceType === "sofa" &&
-      updatedItem.carpet_type === "نفری"
-    ) {
-      updatedItem.total = updatedItem.quantity * 500000;
-    }
+    // ✅ استفاده از calcTotal به جای محاسبه دستی
+    updatedItem.total = calcTotal(updatedItem);
 
     newItems[index] = updatedItem;
     setItems(newItems);
@@ -676,14 +689,216 @@ export default function CreateInvoiceForm() {
                 </div>
 
                 {/* دکمه حذف */}
-                <div className="flex justify-end">
+                {/* سطر خدمات اضافه و حذف */}
+                <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                  {/* خدمات اضافه - فقط برای carpet */}
+                  {serviceType === "carpet" && (
+                    <div className="flex flex-wrap gap-3">
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={
+                            item.extra_services?.stain_removal?.enabled || false
+                          }
+                          onChange={(e) => {
+                            const newItems = [...items];
+                            newItems[index] = {
+                              ...newItems[index],
+                              extra_services: {
+                                ...newItems[index].extra_services,
+                                stain_removal: {
+                                  enabled: e.target.checked,
+                                  price: 0,
+                                },
+                              },
+                              total: calcTotal({
+                                ...newItems[index],
+                                extra_services: {
+                                  ...newItems[index].extra_services,
+                                  stain_removal: {
+                                    enabled: e.target.checked,
+                                    price: 0,
+                                  },
+                                },
+                              }),
+                            };
+                            setItems(newItems);
+                          }}
+                          className="w-3 h-3"
+                        />
+                        <span>لکه‌برداری</span>
+                        {item.extra_services?.stain_removal?.enabled && (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={
+                              item.extra_services?.stain_removal?.price === 0
+                                ? ""
+                                : item.extra_services?.stain_removal?.price
+                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const price =
+                                val === ""
+                                  ? 0
+                                  : parseInt(toEnglishNumber(val)) || 0;
+                              const newItems = [...items];
+                              newItems[index] = {
+                                ...newItems[index],
+                                extra_services: {
+                                  ...newItems[index].extra_services,
+                                  stain_removal: { enabled: true, price },
+                                },
+                                total: calcTotal({
+                                  ...newItems[index],
+                                  extra_services: {
+                                    ...newItems[index].extra_services,
+                                    stain_removal: { enabled: true, price },
+                                  },
+                                }),
+                              };
+                              setItems(newItems);
+                            }}
+                            placeholder="تومان"
+                            className="w-30 px-1 py-1 border border-gray-300 rounded text-[10px] outline-none"
+                          />
+                        )}
+                      </label>
+
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={
+                            item.extra_services?.double_wash?.enabled || false
+                          }
+                          onChange={(e) => {
+                            const newItems = [...items];
+                            newItems[index] = {
+                              ...newItems[index],
+                              extra_services: {
+                                ...newItems[index].extra_services,
+                                double_wash: {
+                                  enabled: e.target.checked,
+                                  price: 0,
+                                },
+                              },
+                            };
+                            newItems[index].total = calcTotal(newItems[index]);
+                            setItems(newItems);
+                          }}
+                          className="w-3 h-3"
+                        />
+                        <span>دوبار شو</span>
+                        {item.extra_services?.double_wash?.enabled && (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={
+                              item.extra_services?.double_wash?.price === 0
+                                ? ""
+                                : item.extra_services?.double_wash?.price
+                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const price =
+                                val === ""
+                                  ? 0
+                                  : parseInt(toEnglishNumber(val)) || 0;
+                              const newItems = [...items];
+                              newItems[index] = {
+                                ...newItems[index],
+                                extra_services: {
+                                  ...newItems[index].extra_services,
+                                  double_wash: { enabled: true, price },
+                                },
+                                total: calcTotal({
+                                  ...newItems[index],
+                                  extra_services: {
+                                    ...newItems[index].extra_services,
+                                    double_wash: { enabled: true, price },
+                                  },
+                                }),
+                              };
+                              setItems(newItems);
+                            }}
+                            placeholder="تومان"
+                            className="w-30 px-1 py-1 border border-gray-300 rounded text-[10px] outline-none"
+                          />
+                        )}
+                      </label>
+
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={
+                            item.extra_services?.premium_wash?.enabled || false
+                          }
+                          onChange={(e) => {
+                            const newItems = [...items];
+                            newItems[index] = {
+                              ...newItems[index],
+                              extra_services: {
+                                ...newItems[index].extra_services,
+                                premium_wash: {
+                                  enabled: e.target.checked,
+                                  price: 0,
+                                },
+                              },
+                            };
+                            newItems[index].total = calcTotal(newItems[index]);
+                            setItems(newItems);
+                          }}
+                          className="w-3 h-3"
+                        />
+                        <span>اعلا شور</span>
+                        {item.extra_services?.premium_wash?.enabled && (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={
+                              item.extra_services?.premium_wash?.price === 0
+                                ? ""
+                                : item.extra_services?.premium_wash?.price
+                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const price =
+                                val === ""
+                                  ? 0
+                                  : parseInt(toEnglishNumber(val)) || 0;
+                              const newItems = [...items];
+                              newItems[index] = {
+                                ...newItems[index],
+                                extra_services: {
+                                  ...newItems[index].extra_services,
+                                  premium_wash: { enabled: true, price },
+                                },
+                                total: calcTotal({
+                                  ...newItems[index],
+                                  extra_services: {
+                                    ...newItems[index].extra_services,
+                                    premium_wash: { enabled: true, price },
+                                  },
+                                }),
+                              };
+                              setItems(newItems);
+                            }}
+                            placeholder="تومان"
+                            className="w-30 px-1 py-1 border border-gray-300 rounded text-[10px] outline-none"
+                          />
+                        )}
+                      </label>
+                    </div>
+                  )}
+
+                  {/* دکمه حذف */}
                   <button
                     type="button"
                     onClick={() => removeItem(index)}
-                    className="text-red-500 hover:text-red-700 text-xs sm:text-sm"
+                    className="text-red-500 hover:text-red-700 text-xs sm:text-sm flex items-center gap-1 shrink-0"
                     disabled={items.length === 1}
                   >
-                    ✕ حذف
+                    <span>✕</span> حذف
                   </button>
                 </div>
               </div>

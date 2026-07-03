@@ -1,7 +1,6 @@
 import connectDB from "./mongodb";
 import CustomerModel from "@/models/Customer";
 import InvoiceModel from "@/models/Invoice";
-import type { ICustomer } from "@/models/Customer";
 import type { IInvoice, IInvoiceItem } from "@/models/Invoice";
 
 // ====== TYPES ======
@@ -119,7 +118,13 @@ export async function addInvoice(invoice: {
   note: string;
 }) {
   await connectDB();
-  return InvoiceModel.create(invoice);
+  const doc = new InvoiceModel(invoice);
+  doc.items.forEach((item: IInvoiceItem & { extra_services?: Record<string, unknown> }, idx: number) => {
+    if (item.extra_services) {
+      doc.markModified(`items.${idx}.extra_services`);
+    }
+  });
+  return doc.save();
 }
 
 export async function updateInvoice(id: string, updates: Partial<IInvoice>) {

@@ -8,6 +8,11 @@ export interface IInvoiceItem {
   pricing_mode: string;
   quantity: number;
   total: number;
+  extra_services?: {
+    stain_removal?: { enabled: boolean; price: number };
+    double_wash?: { enabled: boolean; price: number };
+    premium_wash?: { enabled: boolean; price: number };
+  };
 }
 
 export interface IInvoice extends Document {
@@ -39,7 +44,7 @@ const InvoiceItemSchema = new Schema<IInvoiceItem>({
   pricing_mode: { type: String, default: "meter" },
   quantity: { type: Number, default: 1 },
   total: { type: Number, default: 0 },
-});
+}, { strict: false, _id: true });
 
 const InvoiceSchema = new Schema<IInvoice>({
   invoice_number: { type: String, required: true, unique: true },
@@ -60,6 +65,6 @@ const InvoiceSchema = new Schema<IInvoice>({
   address: { type: String, default: "" },
   note: { type: String, default: "" },
   created_at: { type: Date, default: Date.now },
-});
+}, { strict: false });
 
 export default mongoose.models.Invoice || mongoose.model<IInvoice>("Invoice", InvoiceSchema);

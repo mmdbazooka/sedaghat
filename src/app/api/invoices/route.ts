@@ -11,6 +11,11 @@ interface InvoiceItemInput {
   pricing_mode: string;
   quantity: number;
   total: number;
+  extra_services?: {
+    stain_removal?: { enabled: boolean; price: number };
+    double_wash?: { enabled: boolean; price: number };
+    premium_wash?: { enabled: boolean; price: number };
+  };
 }
 
 export async function GET() {
@@ -73,6 +78,7 @@ export async function POST(req: Request) {
       pricing_mode: item.pricing_mode,
       quantity: item.quantity,
       total: item.total,
+      extra_services: item.extra_services || {},
     })),
     delivery_price: delivery_price || 0,
     subtotal,
