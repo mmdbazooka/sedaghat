@@ -5,11 +5,13 @@ export async function GET() {
   const from = process.env.MELIPAYAMAK_FROM;
 
   const response = await fetch(
-    `https://console.melipayamak.com/api/send/simple/2f5d4565-fe40-468b-bf53-2434fcbe3c98`,
+    `https://rest.payamak-panel.com/api/SmartSMS/Send`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        username : "9118934898",
+        password : apiKey,
         from: from,
         to: "09027912478",
         text: "تست پیامک از قالیشویی صداقت",

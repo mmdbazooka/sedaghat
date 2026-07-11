@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { addInvoice, generateInvoiceNumber, getCustomerById, getInvoices } from '@/lib/db';
-import { sendSms } from '@/lib/sms';
+import { sendSingleSms } from '@/lib/sms-single';
 import type { OrderStatus, PaymentStatus } from '@/lib/db';
 
 interface InvoiceItemInput {
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
     smsText = `قالیشویی و مبل شویی صداقت\nمبلغ: ${finalAmount.toLocaleString()} تومان (پرداخت در محل)\nبا مدیریت خانم مهندس ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
   }
 
-  await sendSms(customer.phone, smsText);
+  await sendSingleSms(customer.phone, smsText);
 
   return NextResponse.json(newInvoice, { status: 201 });
 }

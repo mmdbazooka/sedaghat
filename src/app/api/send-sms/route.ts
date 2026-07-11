@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAllPhones } from "@/lib/db";
-import { sendSms } from "@/lib/sms";
+import { sendBulkSms } from "@/lib/sms-bulk";
 
 export async function POST(req: Request) {
   const { text } = await req.json();
@@ -14,10 +14,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "هیچ شماره‌ای موجود نیست" }, { status: 400 });
   }
 
-  const numbersList = phones.join(",");
-  console.log("Sending to:", numbersList);
-  
-  const result = await sendSms(numbersList, text);
+  const result = await sendBulkSms(phones, text);
   console.log("Bulk SMS Result:", result);
 
   return NextResponse.json({ success: result.success });
