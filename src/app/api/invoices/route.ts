@@ -95,7 +95,7 @@ export async function POST(req: Request) {
 
   // متن پیامک
   let smsText = '';
-  const invoiceLink = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/invoice/${newInvoice.invoice_number}`;
+  const invoiceLink = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://sedaghat-washing.liara.run'}/invoice/${newInvoice.invoice_number}`;
 
   if (payment_status === 'paid') {
     smsText = `قالیشویی و مبل شویی صداقت\nبا مدیریت خانم مهندس ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
