@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { addInvoice, generateInvoiceNumber, getCustomerById, getInvoices } from '@/lib/db';
-import { sendSingleSms } from '@/lib/sms-single';
 import type { OrderStatus, PaymentStatus } from '@/lib/db';
 
 interface InvoiceItemInput {
@@ -92,20 +91,6 @@ export async function POST(req: Request) {
     address: address || '',
     note: note || '',
   });
-
-  // متن پیامک
-  let smsText = '';
-  const invoiceLink = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://sedaghat-washing.liara.run'}/invoice/${newInvoice.invoice_number}`;
-
-  if (payment_status === 'paid') {
-    smsText = `قالیشویی و مبل شویی صداقت\nبا مدیریت خانم مهندس ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
-  } else if (payment_status === 'pending') {
-    smsText = `قالیشویی و مبل شویی صداقت\nمبلغ: ${finalAmount.toLocaleString()} تومان\n6037998215922260\nبه نام سمیه ولی\nبا مدیریت خانم مهندس ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
-  } else if (payment_status === 'cash_on_delivery') {
-    smsText = `قالیشویی و مبل شویی صداقت\nمبلغ: ${finalAmount.toLocaleString()} تومان (پرداخت در محل)\nبا مدیریت خانم مهندس ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
-  }
-
-  await sendSingleSms(customer.phone, smsText);
 
   return NextResponse.json(newInvoice, { status: 201 });
 }

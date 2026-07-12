@@ -137,9 +137,6 @@ export default async function InvoicePage({
 
           {/* Customer Info */}
           <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
-            <h3 className="font-bold text-gray-700 mb-1 sm:mb-2 text-sm sm:text-base">
-              اطلاعات مشتری
-            </h3>
             <p className="text-base sm:text-lg font-medium">
               {invoice.customer_name}
             </p>

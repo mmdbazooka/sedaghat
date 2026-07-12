@@ -139,8 +139,8 @@ export async function deleteInvoice(id: string) {
 
 export async function generateInvoiceNumber(): Promise<string> {
   await connectDB();
-  const count = await InvoiceModel.countDocuments();
   const year = new Date().getFullYear().toString();
-  const number = (count + 1).toString().padStart(4, "0");
-  return `SDQ_${year}_${number}`;
+  const random = Math.floor(1000 + Math.random() * 9000); 
+  const timestamp = Date.now().toString().slice(-4);
+  return `SDQ_${year}_${random}${timestamp}`;
 }

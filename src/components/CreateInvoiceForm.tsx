@@ -1,5 +1,5 @@
 "use client";
-import { FileText, Search } from "lucide-react";
+import { Copy, FileText, Search } from "lucide-react";
 import { useState, useEffect } from "react";
 
 interface Customer {
@@ -57,6 +57,10 @@ export default function CreateInvoiceForm() {
   const [discountPercent, setDiscountPercent] = useState(0);
   const [paymentStatus, setPaymentStatus] = useState("pending");
   const [deliveryDate, setDeliveryDate] = useState("");
+  const [generatedSmsText, setGeneratedSmsText] = useState("");
+  const [generatedInvoiceNumber, setGeneratedInvoiceNumber] = useState("");
+  const [generatedCustomerPhone, setGeneratedCustomerPhone] = useState("");
+  const [copiedText, setCopiedText] = useState<string | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState<{
@@ -335,9 +339,27 @@ export default function CreateInvoiceForm() {
     setLoading(false);
 
     if (res.ok) {
+      const invoiceLink = `${process.env.NEXT_PUBLIC_SITE_URL}/invoice/${data.invoice_number}`;
+      let smsText = "";
+
+      if (paymentStatus === "paid") {
+        smsText = `قالیشویی و مبل شویی صداقت\nبا مدیریت خانم مهندس ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
+      } else if (paymentStatus === "pending") {
+        smsText = `قالیشویی و مبل شویی صداقت\nمبلغ: ${finalAmount.toLocaleString()} تومان\n6037998215922260\nبه نام سمیه ولی\nبا مدیریت خانم مهندس ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
+      } else if (paymentStatus === "cash_on_delivery") {
+        smsText = `قالیشویی و مبل شویی صداقت\nمبلغ: ${finalAmount.toLocaleString()} تومان (پرداخت در محل)\nبا مدیریت خانم مهندس ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
+      }
+
+      const phone =
+        customers.find((c) => (c._id?.toString() || c.id) === selectedCustomer)
+          ?.phone || "";
+      setGeneratedSmsText(smsText);
+      setGeneratedInvoiceNumber(data.invoice_number);
+      setGeneratedCustomerPhone(phone);
+
       setMsg({
         type: "success",
-        text: `✅ فاکتور ${data.invoice_number} با موفقیت صادر و پیامک ارسال شد`,
+        text: `✅ فاکتور ${data.invoice_number} با موفقیت صادر شد`,
       });
       setItems([
         {
@@ -1215,9 +1237,79 @@ export default function CreateInvoiceForm() {
           disabled={loading}
           className="w-full bg-linear-to-r from-blue-600 to-blue-700 text-white font-bold py-4 rounded-xl hover:shadow-xl transition disabled:opacity-50 text-lg"
         >
-          {loading ? "در حال صدور فاکتور..." : "صدور فاکتور و ارسال پیامک"}
+          {loading ? "در حال صدور فاکتور..." : "صدور فاکتور"}
         </button>
       </form>
+      {generatedSmsText && (
+        <div className="bg-linear-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-2xl p-4 sm:p-5 space-y-4 shadow-lg">
+          {/* هدر - شماره و دکمه‌ها */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div>
+                <p className="text-xs text-gray-500">ارسال پیامک به</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-blue-800 font-mono tracking-wide">
+                    {generatedCustomerPhone}
+                  </span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedCustomerPhone);
+                      setCopiedText("شماره");
+                      setTimeout(() => setCopiedText(null), 1500);
+                    }}
+                    className="p-1.5 bg-white text-blue-600 rounded-lg hover:bg-blue-100 transition border border-blue-200 relative"
+                    title="کپی شماره"
+                  >
+                    <Copy className="w-4 h-4 text-blue-600"/>
+                    {copiedText === "شماره" && (
+                      <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-green-600 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap">
+                        ✓ کپی شد
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(generatedSmsText);
+                  setCopiedText("پیامک");
+                  setTimeout(() => setCopiedText(null), 1500);
+                }}
+                className="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition flex items-center gap-2 shadow-md relative"
+              >
+                <Copy className="w-4 h-4 text-blue-50"/>
+                کپی پیامک
+                {copiedText === "پیامک" && (
+                  <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-green-600 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap">
+                    ✓ کپی شد
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* متن پیامک */}
+          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-inner">
+            <pre className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed font-sans">
+              {generatedSmsText}
+            </pre>
+          </div>
+
+          {/* فوتر */}
+          <div className="flex items-center justify-between text-xs text-gray-400">
+            <span>
+              شماره فاکتور:{" "}
+              <strong className="text-blue-700">
+                {generatedInvoiceNumber}
+              </strong>
+            </span>
+            <span>فاکتور با موفقیت ثبت شد ✅</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
