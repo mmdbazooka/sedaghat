@@ -339,20 +339,58 @@ export default function CreateInvoiceForm() {
     setLoading(false);
 
     if (res.ok) {
-      const invoiceLink = `${process.env.NEXT_PUBLIC_SITE_URL}/invoice/${data.invoice_number}`;
-      let smsText = "";
+      const itemsSummary = items
+        .map((item) => {
+          const extraServices = [];
+          if (item.extra_services?.stain_removal?.enabled) {
+            extraServices.push(
+              `لکه‌برداری ${item.extra_services.stain_removal.price.toLocaleString()}`
+            );
+          }
+          if (item.extra_services?.double_wash?.enabled) {
+            extraServices.push(
+              `دوبار شو ${item.extra_services.double_wash.price.toLocaleString()}`
+            );
+          }
+          if (item.extra_services?.premium_wash?.enabled) {
+            extraServices.push(
+              `اعلا شور ${item.extra_services.premium_wash.price.toLocaleString()}`
+            );
+          }
 
-      if (paymentStatus === "paid") {
-        smsText = `قالیشویی و مبل شویی صداقت\nبا مدیریت خانم مهندس ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
-      } else if (paymentStatus === "pending") {
-        smsText = `قالیشویی و مبل شویی صداقت\nمبلغ: ${finalAmount.toLocaleString()} تومان\n6037998215922260\nبه نام سمیه ولی\nبا مدیریت خانم مهندس ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
-      } else if (paymentStatus === "cash_on_delivery") {
-        smsText = `قالیشویی و مبل شویی صداقت\nمبلغ: ${finalAmount.toLocaleString()} تومان (پرداخت در محل)\nبا مدیریت خانم مهندس ولی\nلینک مشاهده فاکتور:\n${invoiceLink}`;
+          const extraText =
+            extraServices.length > 0 ? ` (${extraServices.join("، ")})` : "";
+          const qtyText = item.quantity > 1 ? ` (${item.quantity} عدد)` : "";
+          return `• ${
+            item.carpet_type
+          }${qtyText}\n  ${item.total.toLocaleString()} تومان${extraText}`;
+        })
+        .join("\n");
+
+      let smsText = `قالیشویی و مبل شویی صداقت\n\n${itemsSummary}\n`;
+
+      if (discountPercent > 0) {
+        smsText += `\nتخفیف: ${discountPercent}٪`;
       }
+
+      smsText += `\n\nمبلغ کل: ${finalAmount.toLocaleString()} تومان`;
+
+      if (paymentStatus === "pending") {
+        smsText += `\n\nشماره کارت:\n6037-9982-1592-2260\nبه نام سمیه ولی`;
+      } else if (paymentStatus === "cash_on_delivery") {
+        smsText += `\nپرداخت در محل`;
+      }
+
+      if (deliveryDate) {
+        smsText += `\n\nتاریخ تحویل: ${deliveryDate}`;
+      }
+
+      smsText += `\n\nبا مدیریت خانم مهندس ولی`;
 
       const phone =
         customers.find((c) => (c._id?.toString() || c.id) === selectedCustomer)
           ?.phone || "";
+
       setGeneratedSmsText(smsText);
       setGeneratedInvoiceNumber(data.invoice_number);
       setGeneratedCustomerPhone(phone);
@@ -1260,7 +1298,7 @@ export default function CreateInvoiceForm() {
                     className="p-1.5 bg-white text-blue-600 rounded-lg hover:bg-blue-100 transition border border-blue-200 relative"
                     title="کپی شماره"
                   >
-                    <Copy className="w-4 h-4 text-blue-600"/>
+                    <Copy className="w-4 h-4 text-blue-600" />
                     {copiedText === "شماره" && (
                       <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-green-600 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap">
                         ✓ کپی شد
@@ -1280,7 +1318,7 @@ export default function CreateInvoiceForm() {
                 }}
                 className="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition flex items-center gap-2 shadow-md relative"
               >
-                <Copy className="w-4 h-4 text-blue-50"/>
+                <Copy className="w-4 h-4 text-blue-50" />
                 کپی پیامک
                 {copiedText === "پیامک" && (
                   <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-green-600 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap">

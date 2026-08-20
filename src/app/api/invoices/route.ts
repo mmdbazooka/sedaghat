@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { addInvoice, generateInvoiceNumber, getCustomerById, getInvoices } from '@/lib/db';
 import type { OrderStatus, PaymentStatus } from '@/lib/db';
+import { sendSingleSms } from '@/lib/sms-single';
 
 interface InvoiceItemInput {
   type: string;
@@ -91,6 +92,50 @@ export async function POST(req: Request) {
     address: address || '',
     note: note || '',
   });
+
+  // ====== ساخت متن پیامک ======
+  const itemsSummary = items
+    .map((item) => {
+      const extraServices = [];
+      if (item.extra_services?.stain_removal?.enabled) {
+        extraServices.push(`لکه‌برداری ${item.extra_services.stain_removal.price.toLocaleString()}`);
+      }
+      if (item.extra_services?.double_wash?.enabled) {
+        extraServices.push(`دوبار شو ${item.extra_services.double_wash.price.toLocaleString()}`);
+      }
+      if (item.extra_services?.premium_wash?.enabled) {
+        extraServices.push(`اعلا شور ${item.extra_services.premium_wash.price.toLocaleString()}`);
+      }
+      const extraText = extraServices.length > 0 ? ` (${extraServices.join("، ")})` : "";
+      const qtyText = item.quantity > 1 ? ` (${item.quantity} عدد)` : "";
+      return `• ${item.carpet_type}${qtyText}\n  ${item.total.toLocaleString()} تومان${extraText}`;
+    })
+    .join("\n");
+
+  let smsText = `قالیشویی و مبل شویی صداقت\n\n${itemsSummary}\n`;
+
+  if (discount_percent > 0) {
+    smsText += `\nتخفیف: ${discount_percent}٪`;
+  }
+
+  smsText += `\n\nمبلغ کل: ${finalAmount.toLocaleString()} تومان`;
+
+  if (payment_status === "pending") {
+    smsText += `\n\nشماره کارت:\n6037-9982-1592-2260\nبه نام سمیه ولی`;
+  } else if (payment_status === "cash_on_delivery") {
+    smsText += `\nپرداخت در محل`;
+  }
+
+  if (delivery_date) {
+    const d = new Date(delivery_date);
+    const persianDate = new Intl.DateTimeFormat("fa-IR").format(d);
+    smsText += `\n\nتاریخ تحویل: ${persianDate}`;
+  }
+
+  smsText += `\n\nبا مدیریت خانم مهندس ولی`;
+
+  // ====== ارسال پیامک ======
+  await sendSingleSms(customer.phone, smsText);
 
   return NextResponse.json(newInvoice, { status: 201 });
 }
